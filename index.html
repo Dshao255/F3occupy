@@ -140,7 +140,7 @@
             statusElement.className = "loading";
 
             try {
-                let response = await fetch("http://你的服务器IP:5000/update", { method: "POST" });
+                let response = await fetch("http://127.0.0.1:5000/update", { method: "POST" });
                 let result = await response.text();
                 statusElement.textContent = result;
                 statusElement.className = result.includes("成功") ? "success" : "error";
