@@ -31,87 +31,139 @@
             margin: 5px 0;
             box-sizing: border-box;
         }
+        button {
+            padding: 8px 15px;
+            margin: 10px 0;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            font-size: 16px;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+        .loading {
+            color: orange;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
     </style>
 </head>
 <body>
 
     <h2>F3 机票数据表</h2>
+
+    <!-- 🔹 "更新数据" 按钮 -->
+    <button onclick="updateData()">🔄 更新数据</button>
+    <span id="status"></span>  <!-- 🔹 显示更新状态 -->
+
     <table id="csvTable"></table>
 
     <script>
         async function loadCSV() {
-            const response = await fetch("https://raw.githubusercontent.com/Dshao255/F3occupy/master/F3%E5%8D%A0%E4%BD%8D%E8%A1%A8.csv");
-            const data = await response.text();
+            const statusElement = document.getElementById("status");
+            statusElement.textContent = "📡 加载数据...";
+            statusElement.className = "loading";
 
-            const rows = data.split("\n").map(row => row.split(","));
-            let table = document.getElementById("csvTable");
-            table.innerHTML = "";
+            try {
+                const response = await fetch("https://raw.githubusercontent.com/Dshao255/F3occupy/master/F3%E5%8D%A0%E4%BD%8D%E8%A1%A8.csv");
+                if (!response.ok) throw new Error("网络请求失败");
 
-            // Create header with filter dropdown
-            let tr = document.createElement("tr");
-            rows[0].forEach((header, index) => {
-                let th = document.createElement("th");
-                th.textContent = header;
+                const data = await response.text();
+                const rows = data.split("\n").map(row => row.split(","));
+                let table = document.getElementById("csvTable");
+                table.innerHTML = "";
 
-                // Add dropdown for each column header
-                let select = document.createElement("select");
-                let defaultOption = document.createElement("option");
-                defaultOption.textContent = "全部";
-                defaultOption.value = "";
-                select.appendChild(defaultOption);
-
-                // Add a unique option for each value in the column
-                const columnValues = Array.from(new Set(rows.slice(1).map(row => row[index])));
-                columnValues.forEach(value => {
-                    let option = document.createElement("option");
-                    option.textContent = value;
-                    option.value = value;
-                    select.appendChild(option);
-                });
-
-                select.addEventListener('change', () => {
-                    filterTable(index, select.value);
-                });
-
-                th.appendChild(select);
-                tr.appendChild(th);
-            });
-            table.appendChild(tr);
-
-            // Render data rows
-            rows.slice(1).forEach((row, index) => {
+                // 创建表头 + 筛选功能
                 let tr = document.createElement("tr");
-                row.forEach((cell, cellIndex) => {
-                    let td = document.createElement("td");
-                    td.textContent = cell;
+                rows[0].forEach((header, index) => {
+                    let th = document.createElement("th");
+                    th.textContent = header;
 
-                    // Apply color based on the cell's content
-                    if (cell.toLowerCase().includes("失效")) {
-                        td.classList.add("expired");
-                    } else if (cell.toLowerCase().includes("占位中")) {
-                        td.classList.add("reserved");
-                    }
+                    // 添加筛选下拉框
+                    let select = document.createElement("select");
+                    let defaultOption = document.createElement("option");
+                    defaultOption.textContent = "全部";
+                    defaultOption.value = "";
+                    select.appendChild(defaultOption);
 
-                    tr.appendChild(td);
+                    // 获取该列所有唯一值并添加到筛选框
+                    const columnValues = Array.from(new Set(rows.slice(1).map(row => row[index])));
+                    columnValues.forEach(value => {
+                        let option = document.createElement("option");
+                        option.textContent = value;
+                        option.value = value;
+                        select.appendChild(option);
+                    });
+
+                    select.addEventListener('change', () => filterTable(index, select.value));
+                    th.appendChild(select);
+                    tr.appendChild(th);
                 });
                 table.appendChild(tr);
-            });
+
+                // 渲染数据行
+                rows.slice(1).forEach(row => {
+                    let tr = document.createElement("tr");
+                    row.forEach((cell, cellIndex) => {
+                        let td = document.createElement("td");
+                        td.textContent = cell;
+                        if (cell.toLowerCase().includes("失效")) td.classList.add("expired");
+                        else if (cell.toLowerCase().includes("占位中")) td.classList.add("reserved");
+                        tr.appendChild(td);
+                    });
+                    table.appendChild(tr);
+                });
+
+                statusElement.textContent = "✅ 数据加载完成";
+                statusElement.className = "success";
+
+            } catch (error) {
+                statusElement.textContent = "❌ 数据加载失败";
+                statusElement.className = "error";
+            }
         }
 
-        // Filter function
+        async function updateData() {
+            const statusElement = document.getElementById("status");
+            statusElement.textContent = "⏳ 更新数据中...";
+            statusElement.className = "loading";
+
+            try {
+                let response = await fetch("http://你的服务器IP:5000/update", { method: "POST" });
+                let result = await response.text();
+                statusElement.textContent = result;
+                statusElement.className = result.includes("成功") ? "success" : "error";
+
+                if (result.includes("成功")) {
+                    setTimeout(() => loadCSV(), 3000); // 3秒后刷新表格
+                }
+
+            } catch (error) {
+                statusElement.textContent = "❌ 更新失败，请稍后再试";
+                statusElement.className = "error";
+            }
+        }
+
         function filterTable(columnIndex, selectedValue) {
             const table = document.getElementById("csvTable");
             const rows = table.getElementsByTagName("tr");
 
-            for (let i = 1; i < rows.length; i++) { // Start from 1 to skip the header row
+            for (let i = 1; i < rows.length; i++) {
                 const cells = rows[i].getElementsByTagName("td");
                 if (cells.length > columnIndex) {
                     const cellText = cells[columnIndex].textContent;
-                    if (selectedValue === "" || cellText === selectedValue) {
-                        rows[i].style.display = "";
-                    } else {
-                        rows[i].style.display = "none";
-                    }
+                    rows[i].style.display = (selectedValue === "" || cellText === selectedValue) ? "" : "none";
                 }
             }
         }
